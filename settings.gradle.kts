@@ -9,6 +9,13 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
+        maven {
+            url = uri("https://oss.sonatype.org/content/repositories/snapshots/")
+            content {
+                // Optionally, restrict the use of this repository to specific groups
+                includeGroupByRegex("com\\.example.*")
+            }
+        }
     }
 }
 dependencyResolutionManagement {

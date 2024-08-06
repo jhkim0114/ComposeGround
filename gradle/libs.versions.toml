@@ -9,6 +9,9 @@ lifecycleRuntimeKtx = "2.6.1"
 activityCompose = "1.8.0"
 composeBom = "2023.08.00"
 timber = "5.0.1"
+runtimeLivedata = "1.6.8"
+landscapistGlide = "2.3.6"
+lottieVersion = "6.5.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -26,6 +29,9 @@ androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-man
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber"}
+runtime-livedata = { group = "androidx.compose.runtime", name = "runtime-livedata", version.ref = "runtimeLivedata"}
+landscapist-glide = { group = "com.github.skydoves", name = "landscapist-glide", version.ref = "landscapistGlide"}
+lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottieVersion"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
