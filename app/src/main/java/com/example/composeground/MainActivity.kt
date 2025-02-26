@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.example.composeground.ui.screen.CaptureScreen
+import com.example.composeground.ui.screen.PagingScreen
 import com.example.composeground.ui.theme.ComposeGroundTheme
 
 class MainActivity : ComponentActivity() {
@@ -22,7 +23,8 @@ class MainActivity : ComponentActivity() {
 //                    PatternScreen()
 //                    ForexBoxHomeScreen()
 //                    MmfAccountSettingScreen()
-                    CaptureScreen()
+//                    CaptureScreen()
+                    PagingScreen()
                 }
             }
         }
