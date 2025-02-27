@@ -3,11 +3,8 @@ package com.example.composeground.viewmodel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class TestViewModel : ViewModel() {
@@ -37,14 +34,14 @@ class TestViewModel : ViewModel() {
 
         isLoading = true
         viewModelScope.launch {
-//            // Repository를 통해 페이지 데이터 요청 (페이지당 20개)
+            // Repository를 통해 페이지 데이터 요청 (페이지당 20개)
 //            val response = Repository.getItems(page, 20)
 //            // 기존 아이템 목록에 새 데이터를 추가
 //            items = items + response.list
 //            totalCount = response.totalCount
 //            hasNext = response.hasNext
-//            page++  // 다음 페이지 번호 업데이트
-//            isLoading = false
+            page++  // 다음 페이지 번호 업데이트
+            isLoading = false
         }
     }
 

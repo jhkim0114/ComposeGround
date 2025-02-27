@@ -6,35 +6,39 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.composeground.viewmodel.TestViewModel
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.composeground.viewmodel.TestViewModel
 
 @Composable
-fun ItemListScreen(viewModel: TestViewModel) {
+fun PagingScreen(viewModel: TestViewModel) {
     val listState = rememberLazyListState()
-    val items = viewModel.items
+    val itemss = viewModel.items
     val isLoading = viewModel.isLoading
 
     // 재사용 가능한 페이징 핸들러 호출
     PagingHandler(
         listState = listState,
-        itemCount = items.size,
+        itemCount = itemss.size,
         hasNext = viewModel.hasNext,
         isLoading = isLoading,
         onLoadMore = { viewModel.loadItems() }
     )
 
     LazyColumn(state = listState) {
-        items(items) { item ->
+        items(
+            items = itemss,
+            key = { item -> item.달러 }
+        ) { item ->
             Text(
-                text = item.name,
+                text = item.원화,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
