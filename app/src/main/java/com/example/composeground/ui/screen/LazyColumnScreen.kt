@@ -5,13 +5,10 @@ package com.example.composeground.ui.screen
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -49,82 +46,142 @@ fun LazyColumnScreen(
 //    uiState: MmfAccountHistoryUiState = MmfAccountHistoryUiState.Success("")
     uiState: MmfAccountHistoryUiState = MmfAccountHistoryUiState.Loading
 ) {
+//    Column {
+//        LazyColumn(
+//            modifier = Modifier.fillMaxSize()
+//        ) {
+//            item {
+//                Text("Header", fontSize = 50.sp)
+//            }
+//            stickyHeader {
+//                Box(
+//                    contentAlignment = Alignment.BottomCenter
+//                ) {
+//                    Text(
+//                        "Item",
+//                        fontSize = 50.sp,
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .background(color = Color.Blue)
+//                    )
+//                    Box(
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .height(40.dp)
+//                            .offset(y = 40.dp)
+//                            .background(
+//                                brush = Brush.verticalGradient(
+//                                    colors = listOf(Color.Yellow, Color.Transparent)
+//                                )
+//                            )
+//                    )
+//                }
+//            }
+//
+//            when (uiState) {
+//                is MmfAccountHistoryUiState.Success -> {
+//                    item {
+//                        repeat(30) {
+//                            Text("Item $it", fontSize = 50.sp)
+//                        }
+//                    }
+//                }
+//
+//                MmfAccountHistoryUiState.Loading,
+//                MmfAccountHistoryUiState.Failure,
+//                MmfAccountHistoryUiState.Empty -> {
+//                    item {
+//                        Box(
+//                            modifier = Modifier.fillParentMaxSize().fillMaxHeight(),
+//                            contentAlignment = Alignment.Center
+//                        ) {
+//                            Text("empty")
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
+
     Column {
-        Spacer(modifier = Modifier.fillMaxWidth().height(500.dp).background(color = Color.Yellow))
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth()
+//        Spacer(modifier = Modifier.fillMaxWidth().height(500.dp).background(color = Color.Yellow))
+        var maxLazyColumnHeight by remember { mutableStateOf(0.dp) }
+        var headerTitleHeight by remember { mutableStateOf(0.dp) }
+        var chipGroupHeight by remember { mutableStateOf(0.dp) }
+        val otherHeight by remember {
+            derivedStateOf { maxLazyColumnHeight - headerTitleHeight - chipGroupHeight }
+        }
+
+        val density = LocalDensity.current
+        val lazyListState = rememberLazyListState()
+
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier
+                .fillMaxSize()
+                .onPlaced { coordinates ->
+                    maxLazyColumnHeight = with(density) {
+                        coordinates.size.height.toDp()
+                    }
+                }
         ) {
-            var headerTitleHeight by remember { mutableStateOf(0.dp) }
-            var chipGroupHeight by remember { mutableStateOf(0.dp) }
-            val otherHeight by remember {
-                derivedStateOf { maxHeight - headerTitleHeight - chipGroupHeight }
+            item {
+                Text("Header", fontSize = 50.sp, modifier = Modifier.onPlaced { coordinates ->
+                    headerTitleHeight = with(density) {
+                        coordinates.size.height.toDp()
+                    }
+                })
+            }
+            stickyHeader {
+                Box(
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Text(
+                        "Item",
+                        fontSize = 50.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(color = Color.Blue)
+                            .onPlaced { coordinates ->
+                                chipGroupHeight = with(density) {
+                                    coordinates.size.height.toDp()
+                                }
+                            }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .offset(y = 40.dp)
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(Color.Yellow, Color.Transparent)
+                                )
+                            )
+                    )
+                }
             }
 
-            val density = LocalDensity.current
-            val lazyListState = rememberLazyListState()
-
-            LazyColumn(
-                state = lazyListState,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                item {
-                    Text("Header", fontSize = 50.sp, modifier = Modifier.onPlaced { coordinates ->
-                        headerTitleHeight = with(density) {
-                            coordinates.size.height.toDp()
+            when (uiState) {
+                is MmfAccountHistoryUiState.Success -> {
+                    item {
+                        repeat(30) {
+                            Text("Item $it", fontSize = 50.sp)
                         }
-                    })
+                    }
                 }
-                stickyHeader {
-                    Box(
-                        contentAlignment = Alignment.BottomCenter
-                    ) {
-                        Text(
-                            "Item",
-                            fontSize = 50.sp,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(color = Color.Blue)
-                                .onPlaced { coordinates ->
-                                    chipGroupHeight = with(density) {
-                                        coordinates.size.height.toDp()
-                                    }
-                                }
-                        )
+
+                MmfAccountHistoryUiState.Loading,
+                MmfAccountHistoryUiState.Failure,
+                MmfAccountHistoryUiState.Empty -> {
+                    item {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(40.dp)
-                                .offset(y = 40.dp)
-                                .background(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(Color.Yellow, Color.Transparent)
-                                    )
-                                )
-                        )
-                    }
-                }
-
-                when (uiState) {
-                    is MmfAccountHistoryUiState.Success -> {
-                        item {
-                            repeat(30) {
-                                Text("Item $it", fontSize = 50.sp)
-                            }
-                        }
-                    }
-
-                    MmfAccountHistoryUiState.Loading,
-                    MmfAccountHistoryUiState.Failure,
-                    MmfAccountHistoryUiState.Empty -> {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(otherHeight),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("empty")
-                            }
+                                .height(otherHeight),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("empty")
                         }
                     }
                 }

@@ -25,9 +25,9 @@ class MainActivity : ComponentActivity() {
 //                    PatternScreen()
 //                    ForexBoxHomeScreen()
 //                    MmfAccountSettingScreen()
-//                    CaptureScreen()
+                    CaptureScreen()
 //                    PagingScreen(TestViewModel())
-                    LazyColumnScreen()
+//                    LazyColumnScreen()
                 }
             }
         }

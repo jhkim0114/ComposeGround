@@ -1,12 +1,17 @@
 package com.example.composeground.ui.screen
 
+import android.app.Activity
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,25 +32,25 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.doOnLayout
 import com.example.composeground.ui.theme.ComposeGroundTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -55,15 +60,14 @@ fun CaptureScreen() {
     ComposeGroundTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             val context = LocalContext.current
-            val rootView = LocalView.current
-            var captureAreaCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
-            var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+            val coroutineScope = rememberCoroutineScope()
 
             Column(
-                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).onGloballyPositioned {
-                    captureAreaCoordinates = it
-                }
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
             ) {
+                ContentBox()
                 Spacer(modifier = Modifier.height(height = 100.dp))
                 HorizontalDivider(
                     modifier = Modifier
@@ -93,7 +97,12 @@ fun CaptureScreen() {
                             )
                         )
                     }
-                    Spacer(modifier = Modifier.width(width = 12.dp).fillMaxHeight().background(color = Color.DarkGray))
+                    Spacer(
+                        modifier = Modifier
+                            .width(width = 12.dp)
+                            .fillMaxHeight()
+                            .background(color = Color.DarkGray)
+                    )
 
                     Column(
                         modifier = Modifier.weight(1f),
@@ -103,7 +112,9 @@ fun CaptureScreen() {
                         Text(
                             text = "title2",
                             fontSize = 30.sp,
-                            modifier = Modifier.background(Color.Red).fillMaxHeight(),
+                            modifier = Modifier
+                                .background(Color.Red)
+                                .fillMaxHeight(),
                             style = TextStyle(
                                 platformStyle = PlatformTextStyle(
                                     includeFontPadding = false
@@ -121,23 +132,27 @@ fun CaptureScreen() {
                 Spacer(modifier = Modifier.padding(top = 200.dp))
                 Button(
                     onClick = {
-                        captureAreaCoordinates?.let { coords ->
-                            // 캡처할 영역의 위치와 크기 계산 (윈도우 기준)
-                            val position = coords.positionInWindow()
-                            val size = coords.size
-                            val bitmap = Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888)
-                            val canvas = Canvas(bitmap)
-                            // 캔버스를 캡처 영역에 맞게 이동
-                            canvas.translate(-position.x, -position.y)
-                            // 루트 뷰 전체를 캔버스에 그리면, 지정한 영역만 Bitmap에 그려짐
-                            rootView.draw(canvas)
-                            capturedBitmap = bitmap
+                        coroutineScope.launch {
+                            val bitmap = createBitmapFromComposable(
+                                context = context,
+                                content = {
+                                    ContentBox()
+                                }
+                            )
 
-                            // Bitmap을 스크린샷 저장 폴더에 파일로 저장
-                            saveBitmapToGallery(context, bitmap, "screenshot_${System.currentTimeMillis()}")
+                            val uri = saveBitmapToCache(context, bitmap) ?: return@launch
+                            val bitmap2 = uriToBitmap(context, uri) ?: return@launch
+                            saveBitmapToGallery(
+                                context,
+                                bitmap2,
+                                "screenshot_${System.currentTimeMillis()}"
+                            )
+                            deleteCachedBitmap(context, uri)
                         }
                     },
-                    modifier = Modifier.wrapContentWidth().align(Alignment.End)
+                    modifier = Modifier
+                        .wrapContentWidth()
+                        .align(Alignment.End)
                 ) {
                     Text("button")
                 }
@@ -146,40 +161,130 @@ fun CaptureScreen() {
     }
 }
 
+fun deleteCachedBitmap(context: Context, uri: Uri) {
+    try {
+        val file = File(uri.path ?: return)
+        if (file.exists()) {
+            file.delete()
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
+fun uriToBitmap(context: Context, uri: Uri): Bitmap? {
+    return try {
+        val inputStream = context.contentResolver.openInputStream(uri)
+        BitmapFactory.decodeStream(inputStream)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri? {
+    return try {
+        val file = File(context.cacheDir, "captured_image.png")
+        val fos = FileOutputStream(file)
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+        fos.close()
+        Uri.fromFile(file)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+@Composable
+fun ContentBox() {
+    Column(
+        modifier = Modifier
+            .background(Color.Yellow)
+            .padding(24.dp)
+    ) {
+        for (i in 1..20) {
+            Text("이건 저장 되야 된다!$i")
+        }
+    }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+suspend fun createBitmapFromComposable(
+    context: Context,
+    content: @Composable () -> Unit
+): Bitmap = withContext(Dispatchers.Main) {
+    val composeView = ComposeView(context).apply {
+        layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        setContent {
+            content()
+        }
+    }
+
+    val decorView = (context as? Activity)?.window?.decorView as? FrameLayout
+    decorView?.addView(composeView)
+
+    suspendCancellableCoroutine { continuation ->
+        composeView.doOnLayout {
+            val bitmap = Bitmap.createBitmap(
+                composeView.measuredWidth,
+                composeView.measuredHeight,
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(bitmap)
+
+            composeView.draw(canvas)
+            decorView?.removeView(composeView)
+            continuation.resume(bitmap, onCancellation = null)
+        }
+    }
+}
+
 /**
  * Bitmap을 기기에 저장하는 함수.
  * Android Q(API 29) 이상과 그 이하에서 모두 동작하도록 MediaStore를 사용.
  */
-fun saveBitmapToGallery(context: Context, bitmap: Bitmap, displayName: String) {
-    val fos: OutputStream?
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        // API 29 이상: MediaStore를 통해 상대경로로 저장
-        val resolver = context.contentResolver
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "$displayName.png")
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
-            put(
-                MediaStore.MediaColumns.RELATIVE_PATH,
-                Environment.DIRECTORY_PICTURES + File.separator + "Screenshots"
-            )
+suspend fun saveBitmapToGallery(context: Context, bitmap: Bitmap, displayName: String) =
+    withContext(Dispatchers.Main) {
+        var fos: OutputStream? = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, "$displayName.png")
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                put(
+                    MediaStore.MediaColumns.RELATIVE_PATH,
+                    Environment.DIRECTORY_PICTURES + File.separator + "Screenshots"
+                )
+            }
+
+            val imageUri =
+                resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+            val fos = imageUri?.let { resolver.openOutputStream(it) }
+            if (fos != null) {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                fos.close()
+            }
+        } else {
+            // API 28 이하: 외부 저장소의 절대 경로 사용 (WRITE_EXTERNAL_STORAGE 권한 필요)
+            val imagesDir =
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                    .toString() +
+                        File.separator + "Screenshots"
+            val file = File(imagesDir)
+            if (!file.exists()) {
+                file.mkdirs()
+            }
+            val image = File(file, "$displayName.png")
+            fos = FileOutputStream(image)
         }
-        val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-        fos = imageUri?.let { resolver.openOutputStream(it) }
-    } else {
-        // API 28 이하: 외부 저장소의 절대 경로 사용 (WRITE_EXTERNAL_STORAGE 권한 필요)
-        val imagesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString() +
-                File.separator + "Screenshots"
-        val file = File(imagesDir)
-        if (!file.exists()) {
-            file.mkdirs()
+        fos?.use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
         }
-        val image = File(file, "$displayName.png")
-        fos = FileOutputStream(image)
     }
-    fos?.use {
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-    }
-}
 
 @Preview(showBackground = true)
 @Composable
