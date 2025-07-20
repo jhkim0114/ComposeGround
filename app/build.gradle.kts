@@ -50,6 +50,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.compose.ui:ui-text")
     implementation(libs.timber)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -62,6 +63,7 @@ dependencies {
     implementation(libs.runtime.livedata)
     implementation(libs.landscapist.glide)
     implementation(libs.lottie.compose)
+    implementation(libs.androidx.constraintlayout)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

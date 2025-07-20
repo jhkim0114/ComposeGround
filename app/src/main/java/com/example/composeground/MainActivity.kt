@@ -6,11 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.example.composeground.ui.screen.CaptureScreen
-import com.example.composeground.ui.screen.LazyColumnScreen
-import com.example.composeground.ui.screen.PagingScreen
+import com.example.composeground.ui.screen.ProgressScreen
 import com.example.composeground.ui.theme.ComposeGroundTheme
-import com.example.composeground.viewmodel.TestViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,9 +22,11 @@ class MainActivity : ComponentActivity() {
 //                    PatternScreen()
 //                    ForexBoxHomeScreen()
 //                    MmfAccountSettingScreen()
-                    CaptureScreen()
+//                    CaptureScreen()
 //                    PagingScreen(TestViewModel())
 //                    LazyColumnScreen()
+//                    ConstraintsScreen()
+                    ProgressScreen()
                 }
             }
         }
