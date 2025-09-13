@@ -1,0 +1,185 @@
+package com.example.composeground.ui.screen
+
+import android.view.View
+import android.view.ViewGroup
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.fragment.app.FragmentActivity
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.viewinterop.AndroidViewBinding
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.zIndex
+import androidx.fragment.app.FragmentContainerView
+import androidx.navigation.NavBackStackEntry
+import com.example.composeground.databinding.LayoutTermsHostBinding
+import com.example.composeground.ui.fragment.TermsFragment
+import com.example.composeground.ui.screen.SlideTransitions.backEnter
+import com.example.composeground.ui.screen.SlideTransitions.backExit
+import com.example.composeground.ui.screen.SlideTransitions.forwardEnter
+import com.example.composeground.ui.screen.SlideTransitions.forwardExit
+
+private object Routes {
+    const val Web = "web"
+    const val Native = "native"
+}
+
+private object SlideTransitions {
+    val forwardEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        slideIntoContainer(
+            towards = SlideDirection.Left,
+            animationSpec = tween(260, easing = FastOutSlowInEasing)
+        ) + fadeIn(tween(200))
+    }
+    val forwardExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        slideOutOfContainer(
+            towards = SlideDirection.Left,
+            animationSpec = tween(260, easing = FastOutSlowInEasing)
+        ) + fadeOut(tween(200))
+    }
+    val backEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        slideIntoContainer(
+            towards = SlideDirection.Right,
+            animationSpec = tween(260, easing = FastOutSlowInEasing)
+        ) + fadeIn(tween(200))
+    }
+    val backExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        slideOutOfContainer(
+            towards = SlideDirection.Right,
+            animationSpec = tween(260, easing = FastOutSlowInEasing)
+        ) + fadeOut(tween(200))
+    }
+}
+
+@Composable
+fun NavHostScreen() {
+    val navController = rememberNavController()
+    var termsContainer by remember { mutableStateOf<FragmentContainerView?>(null) }
+    var viewBinding by remember { mutableStateOf<LayoutTermsHostBinding?>(null) }
+
+    Scaffold { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Routes.Web,
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = forwardEnter,
+            exitTransition = forwardExit,
+            popEnterTransition = backEnter,
+            popExitTransition = backExit
+        ) {
+            composable(Routes.Web) {
+                WebScreen(
+                    container = termsContainer,
+                    onInitContainer = { termsContainer = it },
+                    viewBinding = viewBinding,
+                    onInitViewBinding = { viewBinding = it },
+                    onClick = { navController.navigate(Routes.Native) }
+                )
+            }
+            composable(Routes.Native) { NativeScreen() }
+        }
+    }
+}
+
+@Composable
+fun NativeScreen() {
+    Text(text = "native")
+}
+
+@Composable
+fun WebScreen(
+    container: FragmentContainerView?,
+    onInitContainer: (FragmentContainerView) -> Unit,
+    viewBinding: LayoutTermsHostBinding?,
+    onInitViewBinding: (LayoutTermsHostBinding) -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    fragmentTag: String = "terms",
+) {
+    val activity = LocalContext.current as FragmentActivity
+    val fm = activity.supportFragmentManager
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // 1번 FragmentContainerView 방식
+        // LayoutTermsHostBinding 제거
+
+        AndroidView(
+            factory = { ctx ->
+                val activeContainer = container ?: FragmentContainerView(ctx).apply {
+                    id = View.generateViewId()
+                }
+                (activeContainer.parent as? ViewGroup)?.removeView(activeContainer)
+
+                activeContainer.post {
+                    val frag = fm.findFragmentByTag(fragmentTag) as? TermsFragment ?: TermsFragment()
+
+                    fm.beginTransaction()
+                        .setReorderingAllowed(true)
+                        .replace(activeContainer.id, frag, fragmentTag)
+                        .commitNow()
+
+                    if (container == null) onInitContainer(activeContainer)
+                }
+
+                activeContainer
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+//        // 2번 viewBinding 방식
+//        if (viewBinding != null) {
+//            AndroidView(
+//                factory = {
+//                    (viewBinding.root.parent as? ViewGroup)?.removeView(viewBinding.root)
+//                    viewBinding.root.post {
+//                        val frag = fm.findFragmentByTag(fragmentTag) as? TermsFragment ?: TermsFragment()
+//                        fm.beginTransaction()
+//                            .setReorderingAllowed(true)
+//                            .replace(viewBinding.termsContainer.id, frag, fragmentTag)
+//                            .commitNow()
+//                    }
+//                    viewBinding.root
+//                },
+//                modifier = Modifier.fillMaxSize()
+//            )
+//        } else {
+//            AndroidViewBinding(LayoutTermsHostBinding::inflate, modifier = Modifier.fillMaxSize()) {
+//                val binding = this
+//                val frag = fm.findFragmentByTag(fragmentTag) as? TermsFragment ?: TermsFragment()
+//                fm.beginTransaction()
+//                    .setReorderingAllowed(true)
+//                    .replace(binding.termsContainer.id, frag, fragmentTag)
+//                    .commitNow()
+//                binding.root.post { onInitViewBinding(binding) }
+//            }
+//        }
+
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .zIndex(1f)
+        ) { Text("다음") }
+    }
+}
