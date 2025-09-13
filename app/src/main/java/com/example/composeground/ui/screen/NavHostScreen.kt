@@ -1,5 +1,6 @@
 package com.example.composeground.ui.screen
 
+import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.zIndex
 import androidx.fragment.app.FragmentContainerView
 import androidx.navigation.NavBackStackEntry
+import java.util.WeakHashMap
 import com.example.composeground.databinding.LayoutTermsHostBinding
 import com.example.composeground.ui.fragment.TermsFragment
 import com.example.composeground.ui.screen.SlideTransitions.backEnter
@@ -69,6 +71,31 @@ private object SlideTransitions {
             towards = SlideDirection.Right,
             animationSpec = tween(260, easing = FastOutSlowInEasing)
         ) + fadeOut(tween(200))
+    }
+}
+
+// ---- [TEST ONLY] In-file FragmentContainer store (Activity-scoped) ----
+//  - 키: (FragmentActivity 인스턴스, fragmentTag)
+//  - 값: FragmentContainerView (동일 인스턴스 재사용)
+//  - WeakHashMap 으로 Activity 종료 시 자동 정리 기대
+private object LocalFragmentContainerStore {
+    private val store: WeakHashMap<FragmentActivity, MutableMap<String, FragmentContainerView>> = WeakHashMap()
+
+    fun getOrCreate(activity: FragmentActivity, tag: String, create: (Context) -> FragmentContainerView): FragmentContainerView {
+        val byTag = store.getOrPut(activity) { mutableMapOf() }
+        val existing = byTag[tag]
+        if (existing != null) return existing
+        val newContainer = create(activity)
+        if (newContainer.id == View.NO_ID) newContainer.id = View.generateViewId()
+        byTag[tag] = newContainer
+        return newContainer
+    }
+
+    fun release(activity: FragmentActivity, tag: String) {
+        store[activity]?.remove(tag)?.let { container ->
+            (container.parent as? ViewGroup)?.removeView(container)
+        }
+        if (store[activity]?.isEmpty() == true) store.remove(activity)
     }
 }
 
@@ -109,10 +136,10 @@ fun NativeScreen() {
 
 @Composable
 fun WebScreen(
-    container: FragmentContainerView?,
-    onInitContainer: (FragmentContainerView) -> Unit,
-    viewBinding: LayoutTermsHostBinding?,
-    onInitViewBinding: (LayoutTermsHostBinding) -> Unit,
+    container: FragmentContainerView?, // 1번에서 사용
+    onInitContainer: (FragmentContainerView) -> Unit, // 1번에서 사용
+    viewBinding: LayoutTermsHostBinding?, // 2번에서 사용
+    onInitViewBinding: (LayoutTermsHostBinding) -> Unit, // 2번에서 사용
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     fragmentTag: String = "terms",
@@ -123,7 +150,7 @@ fun WebScreen(
     Box(modifier = modifier.fillMaxSize()) {
         // 1번 FragmentContainerView 방식
         // LayoutTermsHostBinding 제거
-
+/*
         AndroidView(
             factory = { ctx ->
                 val activeContainer = container ?: FragmentContainerView(ctx).apply {
@@ -146,6 +173,7 @@ fun WebScreen(
             },
             modifier = Modifier.fillMaxSize()
         )
+*/
 
 //        // 2번 viewBinding 방식
 //        if (viewBinding != null) {
@@ -174,6 +202,30 @@ fun WebScreen(
 //                binding.root.post { onInitViewBinding(binding) }
 //            }
 //        }
+
+        // 3번 store 방식 (테스트용): 파일 내부 Store(LocalFragmentContainerStore)로 컨테이너 보관
+        val activeContainer = remember(activity, fragmentTag) {
+            LocalFragmentContainerStore.getOrCreate(activity, fragmentTag) { ctx ->
+                FragmentContainerView(ctx).apply { id = View.generateViewId() }
+            }
+        }
+
+        AndroidView(
+            factory = {
+                // 재부착: 기존 부모에서 떼고 현재 컴포지션에 붙임
+                (activeContainer.parent as? ViewGroup)?.removeView(activeContainer)
+                // 컨테이너가 윈도우에 attach 된 뒤 프래그먼트 뷰를 현재 컨테이너로 부착
+                activeContainer.post {
+                    val frag = fm.findFragmentByTag(fragmentTag) as? TermsFragment ?: TermsFragment()
+                    fm.beginTransaction()
+                        .setReorderingAllowed(true)
+                        .replace(activeContainer.id, frag, fragmentTag)
+                        .commitNow()
+                }
+                activeContainer
+            },
+            modifier = Modifier.fillMaxSize()
+        )
 
         Button(
             onClick = onClick,
