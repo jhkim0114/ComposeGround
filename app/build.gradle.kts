@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.lottie.compose)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.ui.viewbinding)
+    implementation(libs.androidx.fragment.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

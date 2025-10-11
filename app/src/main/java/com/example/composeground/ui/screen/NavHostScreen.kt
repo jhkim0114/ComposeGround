@@ -1,8 +1,10 @@
 package com.example.composeground.ui.screen
 
 import android.content.Context
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.EnterTransition
@@ -24,16 +26,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.fragment.app.FragmentActivity
+import androidx.fragment.app.commit
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.viewinterop.AndroidViewBinding
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.zIndex
 import androidx.fragment.app.FragmentContainerView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
 import java.util.WeakHashMap
 import com.example.composeground.databinding.LayoutTermsHostBinding
 import com.example.composeground.ui.fragment.TermsFragment
@@ -41,8 +48,10 @@ import com.example.composeground.ui.screen.SlideTransitions.backEnter
 import com.example.composeground.ui.screen.SlideTransitions.backExit
 import com.example.composeground.ui.screen.SlideTransitions.forwardEnter
 import com.example.composeground.ui.screen.SlideTransitions.forwardExit
+import timber.log.Timber
 
 private object Routes {
+    const val Start = "start"
     const val Web = "web"
     const val Native = "native"
 }
@@ -108,15 +117,26 @@ fun NavHostScreen() {
     Scaffold { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.Web,
+            startDestination = Routes.Start,
             modifier = Modifier.padding(innerPadding),
             enterTransition = forwardEnter,
             exitTransition = forwardExit,
             popEnterTransition = backEnter,
             popExitTransition = backExit
         ) {
-            composable(Routes.Web) {
+            composable(Routes.Start) {
+                Button(
+                    onClick = {
+                        navController.navigate(Routes.Web)
+                    }
+                ) { Text("다음") }
+            }
+            composable(Routes.Web) { backStackEntry ->
+//                WebScreen1(
+//                    onClick = { navController.navigate(Routes.Native) }
+//                )
                 WebScreen(
+                    backStackEntry = backStackEntry,
                     container = termsContainer,
                     onInitContainer = { termsContainer = it },
                     viewBinding = viewBinding,
@@ -124,15 +144,100 @@ fun NavHostScreen() {
                     onClick = { navController.navigate(Routes.Native) }
                 )
             }
-            composable(Routes.Native) { NativeScreen() }
+            composable(Routes.Native) { NativeScreen(
+                navController
+            ) }
         }
     }
 }
 
 @Composable
-fun NativeScreen() {
+fun NativeScreen(
+    navController: NavHostController
+) {
+    BackHandler {
+        navController.popBackStack()
+    }
+
     Text(text = "native")
 }
+
+@Composable
+fun WebScreen1(
+    onClick: () -> Unit,
+) {
+    val activity = LocalContext.current as FragmentActivity
+    val fm = activity.supportFragmentManager
+    val tag = "webview-frag"
+
+    // Keep one container instance across recompositions / back navigation
+    val container = remember(activity) {
+        FragmentContainerView(activity).apply { id = View.generateViewId() }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        AndroidView(
+            factory = {
+                // Reattach the same container to the current composition
+                (container.parent as? ViewGroup)?.removeView(container)
+
+                // Ensure a single Fragment instance is added once and then only shown/hidden
+                val existed = fm.findFragmentByTag(tag) as? TermsFragment
+                if (existed == null) {
+                    val frag = TermsFragment()
+                    fm.commit {
+                        setReorderingAllowed(true)
+                        add(container.id, frag, tag)
+                        show(frag)
+                        setMaxLifecycle(frag, androidx.lifecycle.Lifecycle.State.RESUMED)
+                    }
+                } else {
+                    fm.commit {
+                        setReorderingAllowed(true)
+                        show(existed)
+                        setMaxLifecycle(existed, androidx.lifecycle.Lifecycle.State.RESUMED)
+                    }
+                }
+
+                container
+            },
+            update = {
+                // When recomposed while visible, make sure it's shown & RESUMED
+                (fm.findFragmentByTag(tag) as? TermsFragment)?.let { frag ->
+                    if (frag.isAdded && frag.isHidden) {
+                        fm.commit {
+                            setReorderingAllowed(true)
+                            show(frag)
+                            setMaxLifecycle(frag, androidx.lifecycle.Lifecycle.State.RESUMED)
+                        }
+                    }
+                }
+            },
+            onRelease = {
+                // When this view leaves composition, hide the fragment but KEEP it in back stack
+                val frag = fm.findFragmentByTag(tag) as? TermsFragment ?: return@AndroidView
+                if (frag.isAdded && !frag.isHidden) {
+                    fm.commit {
+                        setReorderingAllowed(true)
+                        hide(frag)
+                        setMaxLifecycle(frag, androidx.lifecycle.Lifecycle.State.STARTED)
+                    }
+                }
+            }
+        )
+
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .zIndex(1f)
+        ) { Text("다음") }
+    }
+}
+
+enum class EnterType { FIRST, REENTER }
 
 @Composable
 fun WebScreen(
@@ -143,6 +248,7 @@ fun WebScreen(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     fragmentTag: String = "terms",
+    backStackEntry: NavBackStackEntry,
 ) {
     val activity = LocalContext.current as FragmentActivity
     val fm = activity.supportFragmentManager
@@ -202,6 +308,24 @@ fun WebScreen(
 //                binding.root.post { onInitViewBinding(binding) }
 //            }
 //        }
+
+
+        DisposableEffect(backStackEntry) {
+            val obs = LifecycleEventObserver { _, event ->
+                Timber.d("@@TEST: ${event.name}")
+                Log.d("@@TEST: ","${event.name}")
+
+                if (event == Lifecycle.Event.ON_START) {
+                    val entered = backStackEntry.savedStateHandle.get<Boolean>("__entered") == true
+                    val type = if (entered) EnterType.REENTER else EnterType.FIRST
+                    Log.d("@@TEST: ", "web visible: $type")
+                    if (!entered) backStackEntry.savedStateHandle["__entered"] = true
+                }
+            }
+            backStackEntry.lifecycle.addObserver(obs)
+            onDispose { backStackEntry.lifecycle.removeObserver(obs) }
+        }
+
 
         // 3번 store 방식 (테스트용): 파일 내부 Store(LocalFragmentContainerStore)로 컨테이너 보관
         val activeContainer = remember(activity, fragmentTag) {
