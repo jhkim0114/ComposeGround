@@ -4,7 +4,9 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Surface
 import androidx.fragment.app.FragmentActivity
+import com.example.composeground.ui.screen.ChartScreen
 import com.example.composeground.ui.screen.NavHostScreen
+import com.example.composeground.ui.screen.TestGround
 import com.example.composeground.ui.theme.ComposeGroundTheme
 
 class MainActivity : FragmentActivity() {
@@ -32,7 +34,8 @@ class MainActivity : FragmentActivity() {
 //                    ProgressScreen()
 //                    TermsAgreementScreen()
 //                    AutoSizeScreen()
-                    NavHostScreen()
+//                    NavHostScreen()
+                    ChartScreen()
 //                    TestGround()
                 }
             }
